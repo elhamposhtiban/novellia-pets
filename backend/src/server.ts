@@ -1,10 +1,8 @@
-import express, { Request, Response } from 'express';
+import express from 'express';
 import cors from 'cors';
 import { connect, initializeSchema } from './db/database';
 import { config } from './config/config';
-import petRoutes from './routes/pets';
-import recordRoutes from './routes/records';
-import dashboardRoutes from './routes/dashboard';
+import routes from './routes';
 
 const app = express();
 const PORT = config.port;
@@ -13,10 +11,7 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Routes
-app.use('/api/pets', petRoutes);
-app.use('/api/records', recordRoutes);
-app.use('/api/dashboard', dashboardRoutes);
+app.use('/api', routes);
 
 (async () => {
   try {
