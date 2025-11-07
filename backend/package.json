@@ -1,0 +1,29 @@
+{
+  "name": "novellia-pets-backend",
+  "version": "1.0.0",
+  "description": "Backend API for Novellia Pets - Medical records management for pets",
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+    "watch": "ts-node-dev --respawn --transpile-only src/server.ts",
+    "generate-certs": "mkdir -p certs && openssl req -x509 -newkey rsa:4096 -keyout certs/key.pem -out certs/cert.pem -days 365 -nodes -subj '/CN=localhost'"
+  },
+  "keywords": ["pets", "medical-records", "api"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.10.0",
+    "@types/cors": "^2.8.17",
+    "typescript": "^5.3.3",
+    "ts-node-dev": "^2.0.0",
+    "concurrently": "^8.2.2"
+  }
+}
