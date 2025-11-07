@@ -7,21 +7,25 @@ import Loading from "../components/Loading";
 import Error from "../components/Error";
 import PetFormModal from "../components/PetFormModal";
 import NavLink from "../components/NavLink";
+import useDebounce from "../hooks/useDebounce";
 
 function PetList() {
   const [search, setSearch] = useState<string>("");
   const [animalType, setAnimalType] = useState<string>("");
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
 
+  // Debounce search input with 500ms delay
+  const debouncedSearch = useDebounce(search, 500);
+
   const {
     data: pets,
     isLoading,
     error,
   } = useQuery<Pet[]>({
-    queryKey: ["pets", search, animalType],
+    queryKey: ["pets", debouncedSearch, animalType],
     queryFn: async () => {
       const response = await petService.getAll(
-        search || undefined,
+        debouncedSearch || undefined,
         animalType || undefined
       );
       return response.data;
