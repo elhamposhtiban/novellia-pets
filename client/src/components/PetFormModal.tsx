@@ -1,7 +1,6 @@
-import { useState, FormEvent } from "react";
+import { useState, FormEvent, useCallback } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { petService } from "../services/petService";
-import { CreatePetData } from "../types";
 import { createPetSchema, CreatePetFormData } from "../schemas/petSchema";
 
 interface PetFormModalProps {

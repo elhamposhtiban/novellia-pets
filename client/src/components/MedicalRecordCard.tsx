@@ -1,3 +1,4 @@
+import { useCallback } from "react";
 import { MedicalRecord } from "../types";
 
 interface MedicalRecordCardProps {
@@ -13,6 +14,14 @@ function MedicalRecordCard({
 }: MedicalRecordCardProps) {
   const isVaccine = record.record_type === "vaccine";
   const isAllergy = record.record_type === "allergy";
+
+  const handleEdit = useCallback(() => {
+    onEdit?.(record.id);
+  }, [onEdit, record.id]);
+
+  const handleDelete = useCallback(() => {
+    onDelete?.(record.id);
+  }, [onDelete, record.id]);
 
   return (
     <div className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
@@ -62,7 +71,7 @@ function MedicalRecordCard({
         <div className="flex gap-2 ml-4">
           {onEdit && (
             <button
-              onClick={() => onEdit(record.id)}
+              onClick={handleEdit}
               className="text-blue-600 hover:text-blue-700 text-sm"
             >
               Edit
@@ -70,7 +79,7 @@ function MedicalRecordCard({
           )}
           {onDelete && (
             <button
-              onClick={() => onDelete(record.id)}
+              onClick={handleDelete}
               className="text-red-600 hover:text-red-700 text-sm"
             >
               Delete

@@ -1,3 +1,4 @@
+import { useState, useMemo, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { petService } from "../services/petService";
@@ -8,11 +9,13 @@ import Error from "../components/Error";
 import NavLink from "../components/NavLink";
 import MedicalRecordCard from "../components/MedicalRecordCard";
 import PetInfoCard from "../components/PetInfoCard";
+import RecordFormModal from "../components/RecordFormModal";
 
 function PetDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const petId = id ? parseInt(id, 10) : 0;
+  const [isRecordModalOpen, setIsRecordModalOpen] = useState<boolean>(false);
 
   const {
     data: pet,
@@ -48,15 +51,19 @@ function PetDetail() {
     return (
       <Error
         message="Error loading pet details"
-        onRetry={() => {
-          window.location.reload();
-        }}
+        onRetry={() => window.location.reload()}
       />
     );
   }
 
-  const vaccines = records?.filter((r) => r.record_type === "vaccine") || [];
-  const allergies = records?.filter((r) => r.record_type === "allergy") || [];
+  const vaccines = useMemo(
+    () => records?.filter((r) => r.record_type === "vaccine") || [],
+    [records]
+  );
+  const allergies = useMemo(
+    () => records?.filter((r) => r.record_type === "allergy") || [],
+    [records]
+  );
 
   return (
     <div className="min-h-screen bg-gray-100 p-8">
@@ -90,7 +97,7 @@ function PetDetail() {
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-bold">Medical Records</h2>
             <button
-              onClick={() => console.log("Add record for pet:", petId)}
+              onClick={() => setIsRecordModalOpen(true)}
               className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
             >
               Add Record
@@ -140,6 +147,12 @@ function PetDetail() {
           </div>
         </div>
       </div>
+
+      <RecordFormModal
+        isOpen={isRecordModalOpen}
+        onClose={() => setIsRecordModalOpen(false)}
+        petId={petId}
+      />
     </div>
   );
 }

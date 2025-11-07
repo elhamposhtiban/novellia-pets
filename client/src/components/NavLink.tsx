@@ -6,15 +6,22 @@ interface NavLinkProps extends Omit<LinkProps, "to"> {
   children: React.ReactNode;
 }
 
-function NavLink({ to, variant = "text", children, className = "", ...props }: NavLinkProps) {
+function NavLink({
+  to,
+  variant = "text",
+  children,
+  className = "",
+  ...props
+}: NavLinkProps) {
   const baseClasses = "font-medium transition-colors";
-  
+
   const variantClasses = {
     button: "bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700",
     text: "text-blue-600 hover:text-blue-700",
   };
 
-  const combinedClassName = `${baseClasses} ${variantClasses[variant]} ${className}`.trim();
+  const combinedClassName =
+    `${baseClasses} ${variantClasses[variant]} ${className}`.trim();
 
   return (
     <Link to={to} className={combinedClassName} {...props}>
@@ -24,4 +31,3 @@ function NavLink({ to, variant = "text", children, className = "", ...props }: N
 }
 
 export default NavLink;
-

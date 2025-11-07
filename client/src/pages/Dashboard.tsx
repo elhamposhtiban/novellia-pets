@@ -22,9 +22,7 @@ function Dashboard() {
     return (
       <Error
         message="Error loading dashboard"
-        onRetry={() => {
-          window.location.reload();
-        }}
+        onRetry={() => window.location.reload()}
       />
     );
   }
