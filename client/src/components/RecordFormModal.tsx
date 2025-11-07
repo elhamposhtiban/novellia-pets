@@ -1,7 +1,7 @@
-import { useState, FormEvent } from "react";
+import { useState, FormEvent, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { recordService } from "../services/recordService";
-import { CreateRecordData } from "../types";
+import { CreateRecordData, MedicalRecord, UpdateRecordData } from "../types";
 import {
   createRecordSchema,
   CreateRecordFormData,
@@ -11,10 +11,17 @@ interface RecordFormModalProps {
   isOpen: boolean;
   onClose: () => void;
   petId: number;
+  record?: MedicalRecord | null;
 }
 
-function RecordFormModal({ isOpen, onClose, petId }: RecordFormModalProps) {
+function RecordFormModal({
+  isOpen,
+  onClose,
+  petId,
+  record,
+}: RecordFormModalProps) {
   const queryClient = useQueryClient();
+  const isEditing = !!record;
   const [formData, setFormData] = useState<CreateRecordFormData>({
     record_type: "vaccine",
     name: "",
@@ -26,7 +33,28 @@ function RecordFormModal({ isOpen, onClose, petId }: RecordFormModalProps) {
     Partial<Record<keyof CreateRecordFormData, string>>
   >({});
 
-  const mutation = useMutation({
+  useEffect(() => {
+    if (record) {
+      setFormData({
+        record_type: record.record_type,
+        name: record.name,
+        date: record.date || "",
+        reactions: record.reactions || "",
+        severity: record.severity,
+      });
+    } else {
+      setFormData({
+        record_type: "vaccine",
+        name: "",
+        date: "",
+        reactions: "",
+        severity: undefined,
+      });
+    }
+    setErrors({});
+  }, [record, isOpen]);
+
+  const createMutation = useMutation({
     mutationFn: (data: CreateRecordData) => recordService.create(petId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["records", petId] });
@@ -48,6 +76,34 @@ function RecordFormModal({ isOpen, onClose, petId }: RecordFormModalProps) {
       } else {
         setErrors({
           name: error.response?.data?.error || "Failed to create record",
+        });
+      }
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (data: UpdateRecordData) =>
+      recordService.update(record!.id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["records", petId] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      handleClose();
+    },
+    onError: (error: any) => {
+      if (error.response?.data?.details) {
+        const validationErrors: Partial<
+          Record<keyof CreateRecordFormData, string>
+        > = {};
+        error.response.data.details.forEach((err: any) => {
+          if (err.path && err.path[0]) {
+            validationErrors[err.path[0] as keyof CreateRecordFormData] =
+              err.message;
+          }
+        });
+        setErrors(validationErrors);
+      } else {
+        setErrors({
+          name: error.response?.data?.error || "Failed to update record",
         });
       }
     },
@@ -88,7 +144,11 @@ function RecordFormModal({ isOpen, onClose, petId }: RecordFormModalProps) {
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (validateForm()) {
-      mutation.mutate(formData);
+      if (isEditing) {
+        updateMutation.mutate(formData);
+      } else {
+        createMutation.mutate(formData);
+      }
     }
   };
 
@@ -130,7 +190,9 @@ function RecordFormModal({ isOpen, onClose, petId }: RecordFormModalProps) {
       <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[100vh] overflow-y-auto">
         <div className="p-6">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-2xl font-bold">Add Medical Record</h2>
+            <h2 className="text-2xl font-bold">
+              {isEditing ? "Edit Medical Record" : "Add Medical Record"}
+            </h2>
             <button
               onClick={handleClose}
               className="text-gray-400 hover:text-gray-600 text-2xl"
@@ -259,16 +321,22 @@ function RecordFormModal({ isOpen, onClose, petId }: RecordFormModalProps) {
                 type="button"
                 onClick={handleClose}
                 className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-                disabled={mutation.isPending}
+                disabled={createMutation.isPending || updateMutation.isPending}
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={mutation.isPending}
+                disabled={createMutation.isPending || updateMutation.isPending}
               >
-                {mutation.isPending ? "Adding..." : "Add Record"}
+                {createMutation.isPending || updateMutation.isPending
+                  ? isEditing
+                    ? "Updating..."
+                    : "Adding..."
+                  : isEditing
+                  ? "Update Record"
+                  : "Add Record"}
               </button>
             </div>
           </form>

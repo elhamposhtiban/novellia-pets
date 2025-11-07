@@ -1,6 +1,6 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { petService } from "../services/petService";
 import { recordService } from "../services/recordService";
 import { Pet, MedicalRecord } from "../types";
@@ -14,8 +14,10 @@ import RecordFormModal from "../components/RecordFormModal";
 function PetDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const petId = id ? parseInt(id, 10) : 0;
   const [isRecordModalOpen, setIsRecordModalOpen] = useState<boolean>(false);
+  const [editingRecordId, setEditingRecordId] = useState<number | null>(null);
 
   const {
     data: pet,
@@ -43,6 +45,65 @@ function PetDetail() {
     enabled: !!petId,
   });
 
+  const vaccines = useMemo(
+    () => records?.filter((r) => r.record_type === "vaccine") || [],
+    [records]
+  );
+  const allergies = useMemo(
+    () => records?.filter((r) => r.record_type === "allergy") || [],
+    [records]
+  );
+
+  const deleteMutation = useMutation({
+    mutationFn: () => petService.delete(petId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pets"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      navigate("/pets");
+    },
+  });
+
+  const handleDelete = () => {
+    if (
+      window.confirm(
+        `Are you sure you want to delete ${pet?.name}? This action cannot be undone.`
+      )
+    ) {
+      deleteMutation.mutate();
+    }
+  };
+
+  const deleteRecordMutation = useMutation({
+    mutationFn: (recordId: number) => recordService.delete(recordId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["records", petId] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+    },
+  });
+
+  const handleDeleteRecord = (recordId: number, recordName: string) => {
+    if (
+      window.confirm(
+        `Are you sure you want to delete "${recordName}"? This action cannot be undone.`
+      )
+    ) {
+      deleteRecordMutation.mutate(recordId);
+    }
+  };
+
+  const handleEditRecord = (recordId: number) => {
+    const record = records?.find((r) => r.id === recordId);
+    if (record) {
+      setEditingRecordId(recordId);
+      setIsRecordModalOpen(true);
+    }
+  };
+
+  const handleCloseRecordModal = () => {
+    setIsRecordModalOpen(false);
+    setEditingRecordId(null);
+  };
+
   if (petLoading || recordsLoading) {
     return <Loading message="Loading pet details..." />;
   }
@@ -55,15 +116,6 @@ function PetDetail() {
       />
     );
   }
-
-  const vaccines = useMemo(
-    () => records?.filter((r) => r.record_type === "vaccine") || [],
-    [records]
-  );
-  const allergies = useMemo(
-    () => records?.filter((r) => r.record_type === "allergy") || [],
-    [records]
-  );
 
   return (
     <div className="min-h-screen bg-gray-100 p-8">
@@ -81,10 +133,11 @@ function PetDetail() {
               Edit Pet
             </button>
             <button
-              onClick={() => console.log("Delete pet:", petId)}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+              onClick={handleDelete}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={deleteMutation.isPending}
             >
-              Delete Pet
+              {deleteMutation.isPending ? "Deleting..." : "Delete Pet"}
             </button>
           </div>
         </div>
@@ -115,8 +168,8 @@ function PetDetail() {
                   <MedicalRecordCard
                     key={vaccine.id}
                     record={vaccine}
-                    onEdit={(id) => console.log("Edit vaccine:", id)}
-                    onDelete={(id) => console.log("Delete vaccine:", id)}
+                    onEdit={handleEditRecord}
+                    onDelete={(id) => handleDeleteRecord(id, vaccine.name)}
                   />
                 ))}
               </div>
@@ -136,8 +189,8 @@ function PetDetail() {
                   <MedicalRecordCard
                     key={allergy.id}
                     record={allergy}
-                    onEdit={(id) => console.log("Edit allergy:", id)}
-                    onDelete={(id) => console.log("Delete allergy:", id)}
+                    onEdit={handleEditRecord}
+                    onDelete={(id) => handleDeleteRecord(id, allergy.name)}
                   />
                 ))}
               </div>
@@ -150,8 +203,13 @@ function PetDetail() {
 
       <RecordFormModal
         isOpen={isRecordModalOpen}
-        onClose={() => setIsRecordModalOpen(false)}
+        onClose={handleCloseRecordModal}
         petId={petId}
+        record={
+          editingRecordId
+            ? records?.find((r) => r.id === editingRecordId) || null
+            : null
+        }
       />
     </div>
   );
