@@ -5,10 +5,12 @@ import { Pet } from "../types";
 import PetCard from "../components/PetCard";
 import Loading from "../components/Loading";
 import Error from "../components/Error";
+import PetFormModal from "../components/PetFormModal";
 
 function PetList() {
   const [search, setSearch] = useState<string>("");
   const [animalType, setAnimalType] = useState<string>("");
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
 
   const {
     data: pets,
@@ -38,7 +40,10 @@ function PetList() {
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold">Pets</h1>
-          <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+          >
             Add New Pet
           </button>
         </div>
@@ -96,6 +101,11 @@ function PetList() {
           </div>
         )}
       </div>
+
+      <PetFormModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+      />
     </div>
   );
 }
