@@ -1,6 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import api from "../services/api";
 import { DashboardStats } from "../types";
+import Loading from "../components/Loading";
+import Error from "../components/Error";
 
 function Dashboard() {
   const { data, isLoading, error } = useQuery<DashboardStats>({
@@ -12,11 +14,11 @@ function Dashboard() {
   });
 
   if (isLoading) {
-    return <div className="p-8">Loading...</div>;
+    return <Loading message="Loading dashboard..." />;
   }
 
   if (error) {
-    return <div className="p-8 text-red-500">Error loading dashboard</div>;
+    return <Error message="Error loading dashboard" />;
   }
 
   return (

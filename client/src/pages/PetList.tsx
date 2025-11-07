@@ -3,6 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { petService } from "../services/petService";
 import { Pet } from "../types";
 import PetCard from "../components/PetCard";
+import Loading from "../components/Loading";
+import Error from "../components/Error";
 
 function PetList() {
   const [search, setSearch] = useState<string>("");
@@ -24,25 +26,11 @@ function PetList() {
   });
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-100 p-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center py-12">Loading pets...</div>
-        </div>
-      </div>
-    );
+    return <Loading message="Loading pets..." />;
   }
 
   if (error) {
-    return (
-      <div className="min-h-screen bg-gray-100 p-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center py-12 text-red-500">
-            Error loading pets
-          </div>
-        </div>
-      </div>
-    );
+    return <Error message="Error loading pets" />;
   }
 
   return (
