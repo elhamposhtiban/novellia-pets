@@ -1,12 +1,21 @@
+import { useNavigate } from "react-router-dom";
 import { Pet } from "../types";
 
 interface PetCardProps {
   pet: Pet;
-  onViewDetails?: (id: number) => void;
-  onEdit?: (id: number) => void;
 }
 
-function PetCard({ pet, onViewDetails, onEdit }: PetCardProps) {
+function PetCard({ pet }: PetCardProps) {
+  const navigate = useNavigate();
+
+  const handleViewDetails = () => {
+    navigate(`/pets/${pet.id}`);
+  };
+
+  const handleEdit = () => {
+    navigate(`/pets/${pet.id}/edit`);
+  };
+
   return (
     <div
       key={pet.id}
@@ -30,13 +39,13 @@ function PetCard({ pet, onViewDetails, onEdit }: PetCardProps) {
         </div>
         <div className="mt-4 flex gap-2">
           <button
-            onClick={() => onViewDetails?.(pet.id)}
+            onClick={handleViewDetails}
             className="flex-1 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
           >
             View Details
           </button>
           <button
-            onClick={() => onEdit?.(pet.id)}
+            onClick={handleEdit}
             className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-50"
           >
             Edit
