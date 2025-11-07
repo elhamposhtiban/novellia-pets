@@ -1,0 +1,14 @@
+{
+  "name": "novellia-pets",
+  "version": "1.0.0",
+  "description": "Novellia Pets - Medical records management for pets",
+  "scripts": {
+    "dev": "concurrently \"npm run dev --prefix backend\" \"npm run dev --prefix client\"",
+    "start": "concurrently \"npm start --prefix backend\" \"npm start --prefix client\"",
+    "install-all": "npm install && npm install --prefix backend && npm install --prefix client"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
+
