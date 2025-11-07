@@ -8,6 +8,12 @@ import Loading from "../components/Loading";
 import Error from "../components/Error";
 import NavLink from "../components/NavLink";
 import FormField from "../components/FormField";
+import FormButtons from "../components/FormButtons";
+import {
+  validateFormData,
+  extractValidationErrors,
+  getErrorMessage,
+} from "../utils/validation";
 
 function EditPet() {
   const { id } = useParams<{ id: string }>();
@@ -41,29 +47,19 @@ function EditPet() {
   const mutation = useMutation({
     mutationFn: (data: UpdatePetData) => petService.update(petId, data),
     onSuccess: async () => {
-      // Invalidate and refetch queries
       await queryClient.invalidateQueries({ queryKey: ["pet", petId] });
       await queryClient.invalidateQueries({ queryKey: ["pets"] });
       await queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
-      // Refetch the pet data before navigating
       await queryClient.refetchQueries({ queryKey: ["pet", petId] });
       navigate(`/pets/${petId}`);
     },
     onError: (error: any) => {
-      if (error.response?.data?.details) {
-        const validationErrors: Partial<
-          Record<keyof CreatePetFormData, string>
-        > = {};
-        error.response.data.details.forEach((err: any) => {
-          if (err.path && err.path[0]) {
-            validationErrors[err.path[0] as keyof CreatePetFormData] =
-              err.message;
-          }
-        });
+      const validationErrors = extractValidationErrors(error);
+      if (Object.keys(validationErrors).length > 0) {
         setErrors(validationErrors);
       } else {
         setErrors({
-          name: error.response?.data?.error || "Failed to update pet",
+          name: getErrorMessage(error, "Failed to update pet"),
         });
       }
     },
@@ -81,18 +77,13 @@ function EditPet() {
   }, [pet]);
 
   const validateForm = (): boolean => {
-    const result = createPetSchema.safeParse(formData);
+    const { isValid, errors: validationErrors } = validateFormData(
+      createPetSchema,
+      formData
+    );
 
-    if (!result.success) {
-      const newErrors: Partial<Record<keyof CreatePetFormData, string>> = {};
-      result.error.errors.forEach(
-        (err: { path: (string | number)[]; message: string }) => {
-          if (err.path[0]) {
-            newErrors[err.path[0] as keyof CreatePetFormData] = err.message;
-          }
-        }
-      );
-      setErrors(newErrors);
+    if (!isValid) {
+      setErrors(validationErrors);
       return false;
     }
 
@@ -100,8 +91,12 @@ function EditPet() {
     return true;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = (
+    e?: React.FormEvent | React.MouseEvent<HTMLButtonElement>
+  ) => {
+    if (e) {
+      e.preventDefault();
+    }
     if (validateForm()) {
       mutation.mutate(formData);
     }
@@ -122,12 +117,7 @@ function EditPet() {
   }
 
   if (error || !pet) {
-    return (
-      <Error
-        message="Error loading pet details"
-        onRetry={() => window.location.reload()}
-      />
-    );
+    return <Error message="Error loading pet details" />;
   }
 
   return (
@@ -201,23 +191,12 @@ function EditPet() {
               />
             </FormField>
 
-            <div className="flex gap-3 pt-4">
-              <button
-                type="button"
-                onClick={() => navigate(`/pets/${petId}`)}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-                disabled={mutation.isPending}
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={mutation.isPending}
-              >
-                {mutation.isPending ? "Updating..." : "Update Pet"}
-              </button>
-            </div>
+            <FormButtons
+              onCancel={() => navigate(`/pets/${petId}`)}
+              onSubmit={(e) => handleSubmit(e)}
+              isSubmitting={mutation.isPending}
+              submitLabel="Update Pet"
+            />
           </form>
         </div>
       </div>

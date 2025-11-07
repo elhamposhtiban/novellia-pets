@@ -1,4 +1,4 @@
-import { useState, FormEvent, useEffect } from "react";
+import { useState, FormEvent, useEffect, useCallback } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { recordService } from "../services/recordService";
 import { CreateRecordData, MedicalRecord, UpdateRecordData } from "../types";
@@ -6,6 +6,14 @@ import {
   createRecordSchema,
   CreateRecordFormData,
 } from "../schemas/recordSchema";
+import Modal from "./Modal";
+import FormField from "./FormField";
+import FormButtons from "./FormButtons";
+import {
+  validateFormData,
+  extractValidationErrors,
+  getErrorMessage,
+} from "../utils/validation";
 
 interface RecordFormModalProps {
   isOpen: boolean;
@@ -35,12 +43,20 @@ function RecordFormModal({
 
   useEffect(() => {
     if (record) {
+      let formattedDate = "";
+      if (record.date) {
+        const dateObj = new Date(record.date);
+        if (!isNaN(dateObj.getTime())) {
+          formattedDate = dateObj.toISOString().split("T")[0];
+        }
+      }
+
       setFormData({
         record_type: record.record_type,
         name: record.name,
-        date: record.date || "",
+        date: formattedDate,
         reactions: record.reactions || "",
-        severity: record.severity,
+        severity: record.severity || undefined,
       });
     } else {
       setFormData({
@@ -62,54 +78,41 @@ function RecordFormModal({
       handleClose();
     },
     onError: (error: any) => {
-      if (error.response?.data?.details) {
-        const validationErrors: Partial<
-          Record<keyof CreateRecordFormData, string>
-        > = {};
-        error.response.data.details.forEach((err: any) => {
-          if (err.path && err.path[0]) {
-            validationErrors[err.path[0] as keyof CreateRecordFormData] =
-              err.message;
-          }
-        });
+      const validationErrors = extractValidationErrors(error);
+      if (Object.keys(validationErrors).length > 0) {
         setErrors(validationErrors);
       } else {
         setErrors({
-          name: error.response?.data?.error || "Failed to create record",
+          name: getErrorMessage(error, "Failed to create record"),
         });
       }
     },
   });
 
   const updateMutation = useMutation({
-    mutationFn: (data: UpdateRecordData) =>
-      recordService.update(record!.id, data),
+    mutationFn: ({
+      recordId,
+      ...data
+    }: UpdateRecordData & { recordId: number }) =>
+      recordService.update(recordId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["records", petId] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
       handleClose();
     },
     onError: (error: any) => {
-      if (error.response?.data?.details) {
-        const validationErrors: Partial<
-          Record<keyof CreateRecordFormData, string>
-        > = {};
-        error.response.data.details.forEach((err: any) => {
-          if (err.path && err.path[0]) {
-            validationErrors[err.path[0] as keyof CreateRecordFormData] =
-              err.message;
-          }
-        });
+      const validationErrors = extractValidationErrors(error);
+      if (Object.keys(validationErrors).length > 0) {
         setErrors(validationErrors);
       } else {
         setErrors({
-          name: error.response?.data?.error || "Failed to update record",
+          name: getErrorMessage(error, "Failed to update record"),
         });
       }
     },
   });
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     setFormData({
       record_type: "vaccine",
       name: "",
@@ -119,58 +122,74 @@ function RecordFormModal({
     });
     setErrors({});
     onClose();
-  };
+  }, [onClose]);
 
-  const validateForm = (): boolean => {
-    const result = createRecordSchema.safeParse(formData);
+  const validateForm = useCallback((): boolean => {
+    const cleanedFormData = {
+      ...formData,
+      severity: formData.severity === null ? undefined : formData.severity,
+    };
 
-    if (!result.success) {
-      const newErrors: Partial<Record<keyof CreateRecordFormData, string>> = {};
-      result.error.errors.forEach(
-        (err: { path: (string | number)[]; message: string }) => {
-          if (err.path[0]) {
-            newErrors[err.path[0] as keyof CreateRecordFormData] = err.message;
-          }
-        }
-      );
-      setErrors(newErrors);
+    const { isValid, errors: validationErrors } = validateFormData(
+      createRecordSchema,
+      cleanedFormData
+    );
+
+    if (!isValid) {
+      setErrors(validationErrors);
       return false;
     }
 
     setErrors({});
     return true;
-  };
+  }, [formData]);
 
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    if (validateForm()) {
-      if (isEditing) {
-        updateMutation.mutate(formData);
+  const handleSubmit = useCallback(
+    (e?: FormEvent | React.MouseEvent<HTMLButtonElement>) => {
+      if (e) {
+        e.preventDefault();
+      }
+
+      if (!validateForm()) {
+        return;
+      }
+
+      if (isEditing && record) {
+        const updateData: UpdateRecordData & { recordId: number } = {
+          recordId: record.id,
+          record_type: formData.record_type,
+          name: formData.name,
+          date: formData.date || undefined,
+          reactions: formData.reactions || undefined,
+          severity: formData.severity === null ? undefined : formData.severity,
+        };
+        updateMutation.mutate(updateData);
       } else {
         createMutation.mutate(formData);
       }
-    }
-  };
+    },
+    [isEditing, record, formData, validateForm, updateMutation, createMutation]
+  );
 
-  const handleChange = (
-    field: keyof CreateRecordFormData,
-    value: string | undefined
-  ) => {
-    setFormData((prev: CreateRecordFormData) => ({
-      ...prev,
-      [field]: value,
-    }));
-    if (errors[field]) {
-      setErrors(
-        (prev: Partial<Record<keyof CreateRecordFormData, string>>) => ({
-          ...prev,
-          [field]: undefined,
-        })
-      );
-    }
-  };
+  const handleChange = useCallback(
+    (field: keyof CreateRecordFormData, value: string | undefined) => {
+      setFormData((prev: CreateRecordFormData) => ({
+        ...prev,
+        [field]: value,
+      }));
+      setErrors((prev) => {
+        if (prev[field]) {
+          const newErrors = { ...prev };
+          delete newErrors[field];
+          return newErrors;
+        }
+        return prev;
+      });
+    },
+    []
+  );
 
-  const handleRecordTypeChange = (value: string) => {
+  const handleRecordTypeChange = useCallback((value: string) => {
     setFormData((prev) => ({
       ...prev,
       record_type: value as "vaccine" | "allergy",
@@ -178,171 +197,110 @@ function RecordFormModal({
       severity: value === "allergy" ? prev.severity : undefined,
     }));
     setErrors({});
-  };
+  }, []);
 
   const isVaccine = formData.record_type === "vaccine";
   const isAllergy = formData.record_type === "allergy";
-
-  if (!isOpen) return null;
+  const isPending = createMutation.isPending || updateMutation.isPending;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[100vh] overflow-y-auto">
-        <div className="p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-2xl font-bold">
-              {isEditing ? "Edit Medical Record" : "Add Medical Record"}
-            </h2>
-            <button
-              onClick={handleClose}
-              className="text-gray-400 hover:text-gray-600 text-2xl"
+    <Modal
+      isOpen={isOpen}
+      onClose={handleClose}
+      title={isEditing ? "Edit Medical Record" : "Add Medical Record"}
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <FormField label="Record Type" error={errors.record_type} required>
+          <select
+            value={formData.record_type}
+            onChange={(e) => handleRecordTypeChange(e.target.value)}
+            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+              errors.record_type ? "border-red-500" : "border-gray-300"
+            }`}
+          >
+            <option value="vaccine">Vaccine</option>
+            <option value="allergy">Allergy</option>
+          </select>
+        </FormField>
+
+        <FormField
+          label={isVaccine ? "Vaccine Name" : "Allergy Name"}
+          error={errors.name}
+          required
+        >
+          <input
+            type="text"
+            value={formData.name}
+            onChange={(e) => handleChange("name", e.target.value)}
+            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+              errors.name ? "border-red-500" : "border-gray-300"
+            }`}
+            placeholder={
+              isVaccine ? "Enter vaccine name" : "Enter allergy name"
+            }
+          />
+        </FormField>
+
+        {isVaccine && (
+          <FormField label="Date Administered" error={errors.date} required>
+            <input
+              type="date"
+              value={formData.date || ""}
+              onChange={(e) => handleChange("date", e.target.value)}
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                errors.date ? "border-red-500" : "border-gray-300"
+              }`}
+            />
+          </FormField>
+        )}
+
+        {isAllergy && (
+          <FormField label="Severity" error={errors.severity} required>
+            <select
+              value={formData.severity || ""}
+              onChange={(e) =>
+                handleChange("severity", e.target.value as "mild" | "severe")
+              }
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                errors.severity ? "border-red-500" : "border-gray-300"
+              }`}
             >
-              ×
-            </button>
-          </div>
+              <option value="">Select severity</option>
+              <option value="mild">Mild</option>
+              <option value="severe">Severe</option>
+            </select>
+          </FormField>
+        )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Record Type *
-              </label>
-              <select
-                value={formData.record_type}
-                onChange={(e) => handleRecordTypeChange(e.target.value)}
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  errors.record_type ? "border-red-500" : "border-gray-300"
-                }`}
-              >
-                <option value="vaccine">Vaccine</option>
-                <option value="allergy">Allergy</option>
-              </select>
-              {errors.record_type && (
-                <p className="text-red-500 text-sm mt-1">
-                  {errors.record_type}
-                </p>
-              )}
-            </div>
+        <FormField label="Reactions (Optional)" error={errors.reactions}>
+          <textarea
+            value={formData.reactions || ""}
+            onChange={(e) => handleChange("reactions", e.target.value)}
+            rows={3}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            placeholder="Describe any reactions (e.g., hives, rash, swelling)"
+          />
+        </FormField>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Name *
-              </label>
-              <input
-                type="text"
-                value={formData.name}
-                onChange={(e) => handleChange("name", e.target.value)}
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  errors.name ? "border-red-500" : "border-gray-300"
-                }`}
-                placeholder={
-                  isVaccine ? "Enter vaccine name" : "Enter allergy name"
-                }
-              />
-              {errors.name && (
-                <p className="text-red-500 text-sm mt-1">{errors.name}</p>
-              )}
-            </div>
+        {isAllergy && (
+          <FormField label="Date (Optional)" error={errors.date}>
+            <input
+              type="date"
+              value={formData.date || ""}
+              onChange={(e) => handleChange("date", e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </FormField>
+        )}
 
-            {isVaccine && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Date Administered *
-                </label>
-                <input
-                  type="date"
-                  value={formData.date || ""}
-                  onChange={(e) => handleChange("date", e.target.value)}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    errors.date ? "border-red-500" : "border-gray-300"
-                  }`}
-                />
-                {errors.date && (
-                  <p className="text-red-500 text-sm mt-1">{errors.date}</p>
-                )}
-              </div>
-            )}
-
-            {isAllergy && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Severity *
-                </label>
-                <select
-                  value={formData.severity || ""}
-                  onChange={(e) =>
-                    handleChange(
-                      "severity",
-                      e.target.value as "mild" | "severe"
-                    )
-                  }
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    errors.severity ? "border-red-500" : "border-gray-300"
-                  }`}
-                >
-                  <option value="">Select severity</option>
-                  <option value="mild">Mild</option>
-                  <option value="severe">Severe</option>
-                </select>
-                {errors.severity && (
-                  <p className="text-red-500 text-sm mt-1">{errors.severity}</p>
-                )}
-              </div>
-            )}
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Reactions (Optional)
-              </label>
-              <textarea
-                value={formData.reactions || ""}
-                onChange={(e) => handleChange("reactions", e.target.value)}
-                rows={3}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Describe any reactions (e.g., hives, rash, swelling)"
-              />
-            </div>
-
-            {isAllergy && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Date (Optional)
-                </label>
-                <input
-                  type="date"
-                  value={formData.date || ""}
-                  onChange={(e) => handleChange("date", e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-            )}
-
-            <div className="flex gap-3 pt-4">
-              <button
-                type="button"
-                onClick={handleClose}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-                disabled={createMutation.isPending || updateMutation.isPending}
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={createMutation.isPending || updateMutation.isPending}
-              >
-                {createMutation.isPending || updateMutation.isPending
-                  ? isEditing
-                    ? "Updating..."
-                    : "Adding..."
-                  : isEditing
-                  ? "Update Record"
-                  : "Add Record"}
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
+        <FormButtons
+          onCancel={handleClose}
+          onSubmit={(e) => handleSubmit(e)}
+          isSubmitting={isPending}
+          submitLabel={isEditing ? "Update Record" : "Add Record"}
+        />
+      </form>
+    </Modal>
   );
 }
 

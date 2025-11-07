@@ -149,18 +149,20 @@ export const updateRecord = async (
     }
 
     const existingRecord = checkResult.rows[0];
-    const finalRecordType = record_type || existingRecord.record_type;
-    const finalName = name || existingRecord.name;
-    const finalDate = date !== undefined ? date : existingRecord.date;
+    // Always use provided values, fallback to existing only if not provided
+    const finalRecordType = record_type !== undefined ? record_type : existingRecord.record_type;
+    const finalName = name !== undefined ? name : existingRecord.name;
+    // For date: if provided (even if empty string), use it; otherwise keep existing
+    const finalDate = date !== undefined ? (date === "" ? null : date) : existingRecord.date;
     const finalReactions = reactions !== undefined ? reactions : existingRecord.reactions;
     const finalSeverity = severity !== undefined ? severity : existingRecord.severity;
 
     const result = await query(
       `UPDATE medical_records 
        SET record_type = $1, name = $2, date = $3, reactions = $4, severity = $5, updated_at = CURRENT_TIMESTAMP
-       WHERE id = ${id}
+       WHERE id = $6
        RETURNING *`,
-      [finalRecordType, finalName, finalDate, finalReactions, finalSeverity]
+      [finalRecordType, finalName, finalDate, finalReactions, finalSeverity, id]
     );
 
     res.status(200).json(result.rows[0]);

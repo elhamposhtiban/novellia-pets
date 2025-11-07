@@ -52,7 +52,6 @@ function MedicalRecordCard({
             </p>
           )}
 
-          {/* Optional date for allergies */}
           {isAllergy && record.date && (
             <p className="text-sm text-gray-600 mt-1">
               Date: {new Date(record.date).toLocaleDateString()}

@@ -133,12 +133,7 @@ function PetDetail() {
   }
 
   if (petError || recordsError || !pet) {
-    return (
-      <Error
-        message="Error loading pet details"
-        onRetry={() => window.location.reload()}
-      />
-    );
+    return <Error message="Error loading pet details" />;
   }
 
   return (

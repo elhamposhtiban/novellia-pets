@@ -1,14 +1,8 @@
 interface ErrorProps {
   message?: string;
-  onRetry?: () => void;
-  retryLabel?: string;
 }
 
-function Error({
-  message = "Error loading data",
-  onRetry,
-  retryLabel = "Try Again",
-}: ErrorProps) {
+function Error({ message = "Error loading data" }: ErrorProps) {
   return (
     <div className="min-h-screen bg-gray-100 p-8">
       <div className="max-w-7xl mx-auto">
@@ -28,15 +22,7 @@ function Error({
               />
             </svg>
           </div>
-          <p className="text-red-500 text-lg font-medium mb-4">{message}</p>
-          {onRetry && (
-            <button
-              onClick={onRetry}
-              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
-            >
-              {retryLabel}
-            </button>
-          )}
+          <p className="text-red-500 text-lg font-medium">{message}</p>
         </div>
       </div>
     </div>

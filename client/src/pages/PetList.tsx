@@ -37,12 +37,7 @@ function PetList() {
   }
 
   if (error) {
-    return (
-      <Error
-        message="Error loading pets"
-        onRetry={() => window.location.reload()}
-      />
-    );
+    return <Error message="Error loading pets" />;
   }
 
   return (
