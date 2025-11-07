@@ -20,6 +20,12 @@ function PetDetail() {
   const [isRecordModalOpen, setIsRecordModalOpen] = useState<boolean>(false);
   const [editingRecordId, setEditingRecordId] = useState<number | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false);
+  const [showDeleteRecordConfirm, setShowDeleteRecordConfirm] = useState<{
+    isOpen: boolean;
+    recordId: number | null;
+    recordName: string;
+  }>({ isOpen: false, recordId: null, recordName: "" });
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const {
     data: pet,
@@ -67,7 +73,13 @@ function PetDetail() {
       navigate("/pets");
     },
     onError: (error: any) => {
-      // Error handling - could be extended with user notification if needed
+      const errorMessage =
+        error.response?.data?.error ||
+        error.message ||
+        "Failed to delete pet. Please try again.";
+      setDeleteError(errorMessage);
+      // Auto-hide error after 5 seconds
+      setTimeout(() => setDeleteError(null), 5000);
     },
   });
 
@@ -89,12 +101,17 @@ function PetDetail() {
   });
 
   const handleDeleteRecord = (recordId: number, recordName: string) => {
-    if (
-      window.confirm(
-        `Are you sure you want to delete "${recordName}"? This action cannot be undone.`
-      )
-    ) {
-      deleteRecordMutation.mutate(recordId);
+    setShowDeleteRecordConfirm({ isOpen: true, recordId, recordName });
+  };
+
+  const handleConfirmDeleteRecord = () => {
+    if (showDeleteRecordConfirm.recordId) {
+      deleteRecordMutation.mutate(showDeleteRecordConfirm.recordId);
+      setShowDeleteRecordConfirm({
+        isOpen: false,
+        recordId: null,
+        recordName: "",
+      });
     }
   };
 
@@ -149,6 +166,22 @@ function PetDetail() {
           </div>
         </div>
 
+        {/* Error Message */}
+        {deleteError && (
+          <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 flex justify-between items-center">
+            <div className="flex items-center gap-2">
+              <span className="text-red-600 text-xl">⚠️</span>
+              <p className="text-red-800">{deleteError}</p>
+            </div>
+            <button
+              onClick={() => setDeleteError(null)}
+              className="text-red-600 hover:text-red-800 text-xl"
+            >
+              ×
+            </button>
+          </div>
+        )}
+
         {/* Pet Information Card */}
         <PetInfoCard pet={pet} />
 
@@ -156,12 +189,47 @@ function PetDetail() {
         <div className="bg-white rounded-lg shadow-lg p-6">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-bold">Medical Records</h2>
-            <button
-              onClick={() => setIsRecordModalOpen(true)}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
-            >
-              Add Record
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  const exportData = {
+                    pet: {
+                      id: pet.id,
+                      name: pet.name,
+                      animal_type: pet.animal_type,
+                      owner_name: pet.owner_name,
+                      date_of_birth: pet.date_of_birth,
+                    },
+                    records: records || [],
+                    exportedAt: new Date().toISOString(),
+                  };
+                  const dataStr = JSON.stringify(exportData, null, 2);
+                  const dataBlob = new Blob([dataStr], {
+                    type: "application/json",
+                  });
+                  const url = URL.createObjectURL(dataBlob);
+                  const link = document.createElement("a");
+                  link.href = url;
+                  link.download = `${pet.name}_medical_records_${
+                    new Date().toISOString().split("T")[0]
+                  }.json`;
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                  URL.revokeObjectURL(url);
+                }}
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700"
+                title="Export pet records as JSON"
+              >
+                📥 Export Records
+              </button>
+              <button
+                onClick={() => setIsRecordModalOpen(true)}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+              >
+                Add Record
+              </button>
+            </div>
           </div>
 
           {/* Vaccines */}
@@ -225,6 +293,22 @@ function PetDetail() {
         onConfirm={handleConfirmDelete}
         title="Delete Pet"
         message={`Are you sure you want to delete "${pet?.name}"?\n\nThis will also delete all associated medical records (vaccines and allergies).\n\nThis action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+      />
+
+      <ConfirmModal
+        isOpen={showDeleteRecordConfirm.isOpen}
+        onClose={() =>
+          setShowDeleteRecordConfirm({
+            isOpen: false,
+            recordId: null,
+            recordName: "",
+          })
+        }
+        onConfirm={handleConfirmDeleteRecord}
+        title="Delete Medical Record"
+        message={`Are you sure you want to delete "${showDeleteRecordConfirm.recordName}"?\n\nThis action cannot be undone.`}
         confirmText="Delete"
         cancelText="Cancel"
       />
