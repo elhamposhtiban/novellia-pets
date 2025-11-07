@@ -1,12 +1,10 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
-
-dotenv.config();
+import { connect, initializeSchema } from './db/database';
+import { config } from './config/config';
 
 const app = express();
-const PORT = process.env.PORT || 5001;
-
+const PORT = config.port;
 
 app.use(cors());
 app.use(express.json());
@@ -16,7 +14,20 @@ app.get('/api/health', (req: Request, res: Response) => {
   res.json({ status: 'ok', message: 'Novellia Pets API is running' });
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-});
+(async () => {
+  try {
+    await connect();
+    
+    await initializeSchema();
+    
+    console.log('✅ Database setup complete');
+    
+    app.listen(PORT, () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+    });
+  } catch (err) {
+    console.error('❌ Database setup failed:', err);
+    process.exit(1);
+  }
+})();
 
