@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import cors from 'cors';
 import { connect, initializeSchema } from './db/database';
 import { config } from './config/config';
+import petRoutes from './routes/pets';
 
 const app = express();
 const PORT = config.port;
@@ -9,6 +10,9 @@ const PORT = config.port;
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Routes
+app.use('/api/pets', petRoutes);
 
 app.get('/api/health', (req: Request, res: Response) => {
   res.json({ status: 'ok', message: 'Novellia Pets API is running' });
