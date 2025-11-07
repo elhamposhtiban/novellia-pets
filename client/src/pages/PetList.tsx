@@ -6,6 +6,7 @@ import PetCard from "../components/PetCard";
 import Loading from "../components/Loading";
 import Error from "../components/Error";
 import PetFormModal from "../components/PetFormModal";
+import NavLink from "../components/NavLink";
 
 function PetList() {
   const [search, setSearch] = useState<string>("");
@@ -39,7 +40,12 @@ function PetList() {
     <div className="min-h-screen bg-gray-100 p-8">
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold">Pets</h1>
+          <div className="flex items-center gap-4">
+            <NavLink to="/" variant="text">
+              Back to Dashboard
+            </NavLink>
+            <h1 className="text-3xl font-bold">Pets</h1>
+          </div>
           <button
             onClick={() => setIsModalOpen(true)}
             className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"

@@ -3,6 +3,7 @@ import api from "../services/api";
 import { DashboardStats } from "../types";
 import Loading from "../components/Loading";
 import Error from "../components/Error";
+import NavLink from "../components/NavLink";
 
 function Dashboard() {
   const { data, isLoading, error } = useQuery<DashboardStats>({
@@ -24,7 +25,12 @@ function Dashboard() {
   return (
     <div className="min-h-screen bg-gray-100 p-8">
       <div className="max-w-7xl mx-auto">
-        <h1 className="text-3xl font-bold mb-8">Novellia Pets Dashboard</h1>
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-3xl font-bold">Novellia Pets Dashboard</h1>
+          <NavLink to="/pets" variant="button">
+            View All Pets
+          </NavLink>
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <div className="bg-white p-6 rounded-lg shadow">
