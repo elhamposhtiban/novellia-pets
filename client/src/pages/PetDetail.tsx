@@ -10,6 +10,7 @@ import NavLink from "../components/NavLink";
 import MedicalRecordCard from "../components/MedicalRecordCard";
 import PetInfoCard from "../components/PetInfoCard";
 import RecordFormModal from "../components/RecordFormModal";
+import ConfirmModal from "../components/ConfirmModal";
 
 function PetDetail() {
   const { id } = useParams<{ id: string }>();
@@ -18,6 +19,7 @@ function PetDetail() {
   const petId = id ? parseInt(id, 10) : 0;
   const [isRecordModalOpen, setIsRecordModalOpen] = useState<boolean>(false);
   const [editingRecordId, setEditingRecordId] = useState<number | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false);
 
   const {
     data: pet,
@@ -30,6 +32,8 @@ function PetDetail() {
       return response.data;
     },
     enabled: !!petId,
+    refetchOnMount: true,
+    refetchOnWindowFocus: false,
   });
 
   const {
@@ -59,18 +63,21 @@ function PetDetail() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pets"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["records", petId] });
       navigate("/pets");
+    },
+    onError: (error: any) => {
+      // Error handling - could be extended with user notification if needed
     },
   });
 
   const handleDelete = () => {
-    if (
-      window.confirm(
-        `Are you sure you want to delete ${pet?.name}? This action cannot be undone.`
-      )
-    ) {
-      deleteMutation.mutate();
-    }
+    if (!pet) return;
+    setShowDeleteConfirm(true);
+  };
+
+  const handleConfirmDelete = () => {
+    deleteMutation.mutate();
   };
 
   const deleteRecordMutation = useMutation({
@@ -210,6 +217,16 @@ function PetDetail() {
             ? records?.find((r) => r.id === editingRecordId) || null
             : null
         }
+      />
+
+      <ConfirmModal
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={handleConfirmDelete}
+        title="Delete Pet"
+        message={`Are you sure you want to delete "${pet?.name}"?\n\nThis will also delete all associated medical records (vaccines and allergies).\n\nThis action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
       />
     </div>
   );

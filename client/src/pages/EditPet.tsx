@@ -40,10 +40,13 @@ function EditPet() {
 
   const mutation = useMutation({
     mutationFn: (data: UpdatePetData) => petService.update(petId, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["pet", petId] });
-      queryClient.invalidateQueries({ queryKey: ["pets"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+    onSuccess: async () => {
+      // Invalidate and refetch queries
+      await queryClient.invalidateQueries({ queryKey: ["pet", petId] });
+      await queryClient.invalidateQueries({ queryKey: ["pets"] });
+      await queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      // Refetch the pet data before navigating
+      await queryClient.refetchQueries({ queryKey: ["pet", petId] });
       navigate(`/pets/${petId}`);
     },
     onError: (error: any) => {
