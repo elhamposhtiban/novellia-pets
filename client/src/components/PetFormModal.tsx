@@ -1,7 +1,7 @@
 import { useState, FormEvent } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { z } from "zod";
 import { petService } from "../services/petService";
-import { createPetSchema, CreatePetFormData } from "../schemas/petSchema";
 import Modal from "./Modal";
 import FormField from "./FormField";
 import FormButtons from "./FormButtons";
@@ -10,6 +10,23 @@ import {
   extractValidationErrors,
   getErrorMessage,
 } from "../utils/validation";
+
+const createPetSchema = z.object({
+  name: z.string().min(1, "Name is required").max(255, "Name is too long"),
+  animal_type: z
+    .string()
+    .min(1, "Animal type is required")
+    .max(100, "Animal type is too long"),
+  owner_name: z
+    .string()
+    .min(1, "Owner name is required")
+    .max(255, "Owner name is too long"),
+  date_of_birth: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format. Use YYYY-MM-DD"),
+});
+
+type CreatePetFormData = z.infer<typeof createPetSchema>;
 
 interface PetFormModalProps {
   isOpen: boolean;

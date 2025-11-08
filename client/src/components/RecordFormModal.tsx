@@ -1,11 +1,8 @@
 import { useState, FormEvent, useEffect, useCallback } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { z } from "zod";
 import { recordService } from "../services/recordService";
 import { CreateRecordData, MedicalRecord, UpdateRecordData } from "../types";
-import {
-  createRecordSchema,
-  CreateRecordFormData,
-} from "../schemas/recordSchema";
 import Modal from "./Modal";
 import FormField from "./FormField";
 import FormButtons from "./FormButtons";
@@ -14,6 +11,48 @@ import {
   extractValidationErrors,
   getErrorMessage,
 } from "../utils/validation";
+
+const createRecordSchema = z
+  .object({
+    record_type: z.enum(["vaccine", "allergy"], {
+      errorMap: () => ({
+        message: 'Record type must be "vaccine" or "allergy"',
+      }),
+    }),
+    name: z.string().min(1, "Name is required").max(255, "Name is too long"),
+    date: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format. Use YYYY-MM-DD")
+      .optional(),
+    reactions: z.string().optional(),
+    severity: z.enum(["mild", "severe"]).optional(),
+  })
+  .refine(
+    (data) => {
+      if (data.record_type === "vaccine" && !data.date) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: "Vaccine records require a date",
+      path: ["date"],
+    }
+  )
+  .refine(
+    (data) => {
+      if (data.record_type === "allergy" && !data.severity) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: "Allergy records require severity (mild or severe)",
+      path: ["severity"],
+    }
+  );
+
+type CreateRecordFormData = z.infer<typeof createRecordSchema>;
 
 interface RecordFormModalProps {
   isOpen: boolean;
