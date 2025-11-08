@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { petService } from "../services/petService";
@@ -6,7 +6,7 @@ import { recordService } from "../services/recordService";
 import { Pet, MedicalRecord } from "../types";
 import Loading from "../components/Loading";
 import Error from "../components/Error";
-import NavLink from "../components/NavLink";
+import PetDetailHeader from "../components/PetDetailHeader";
 import MedicalRecordCard from "../components/MedicalRecordCard";
 import PetInfoCard from "../components/PetInfoCard";
 import RecordFormModal from "../components/RecordFormModal";
@@ -16,6 +16,7 @@ function PetDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  //conver string id into number
   const petId = id ? parseInt(id, 10) : 0;
   const [isRecordModalOpen, setIsRecordModalOpen] = useState<boolean>(false);
   const [editingRecordId, setEditingRecordId] = useState<number | null>(null);
@@ -55,14 +56,8 @@ function PetDetail() {
     enabled: !!petId,
   });
 
-  const vaccines = useMemo(
-    () => records?.filter((r) => r.record_type === "vaccine") || [],
-    [records]
-  );
-  const allergies = useMemo(
-    () => records?.filter((r) => r.record_type === "allergy") || [],
-    [records]
-  );
+  const vaccines = records?.filter((r) => r.record_type === "vaccine") || [];
+  const allergies = records?.filter((r) => r.record_type === "allergy") || [];
 
   const deleteMutation = useMutation({
     mutationFn: () => petService.delete(petId),
@@ -128,6 +123,37 @@ function PetDetail() {
     setEditingRecordId(null);
   };
 
+  const handleExportRecords = () => {
+    if (!pet) return;
+
+    const exportData = {
+      pet: {
+        id: pet.id,
+        name: pet.name,
+        animal_type: pet.animal_type,
+        owner_name: pet.owner_name,
+        date_of_birth: pet.date_of_birth,
+      },
+      records: records || [],
+      exportedAt: new Date().toISOString(),
+    };
+
+    const dataStr = JSON.stringify(exportData, null, 2);
+    const dataBlob = new Blob([dataStr], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${pet.name}_medical_records_${
+      new Date().toISOString().split("T")[0]
+    }.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   if (petLoading || recordsLoading) {
     return <Loading message="Loading pet details..." />;
   }
@@ -140,26 +166,11 @@ function PetDetail() {
     <div className="min-h-screen bg-gray-100 p-8">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
-        <div className="flex justify-between items-center mb-6">
-          <NavLink to="/pets" variant="text">
-            ← Back to Pets
-          </NavLink>
-          <div className="flex gap-3">
-            <button
-              onClick={() => navigate(`/pets/${petId}/edit`)}
-              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-            >
-              Edit Pet
-            </button>
-            <button
-              onClick={handleDelete}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={deleteMutation.isPending}
-            >
-              {deleteMutation.isPending ? "Deleting..." : "Delete Pet"}
-            </button>
-          </div>
-        </div>
+        <PetDetailHeader
+          petId={petId}
+          onDelete={handleDelete}
+          isDeleting={deleteMutation.isPending}
+        />
 
         {/* Error Message */}
         {deleteError && (
@@ -186,33 +197,7 @@ function PetDetail() {
             <h2 className="text-2xl font-bold">Medical Records</h2>
             <div className="flex gap-3">
               <button
-                onClick={() => {
-                  const exportData = {
-                    pet: {
-                      id: pet.id,
-                      name: pet.name,
-                      animal_type: pet.animal_type,
-                      owner_name: pet.owner_name,
-                      date_of_birth: pet.date_of_birth,
-                    },
-                    records: records || [],
-                    exportedAt: new Date().toISOString(),
-                  };
-                  const dataStr = JSON.stringify(exportData, null, 2);
-                  const dataBlob = new Blob([dataStr], {
-                    type: "application/json",
-                  });
-                  const url = URL.createObjectURL(dataBlob);
-                  const link = document.createElement("a");
-                  link.href = url;
-                  link.download = `${pet.name}_medical_records_${
-                    new Date().toISOString().split("T")[0]
-                  }.json`;
-                  document.body.appendChild(link);
-                  link.click();
-                  document.body.removeChild(link);
-                  URL.revokeObjectURL(url);
-                }}
+                onClick={handleExportRecords}
                 className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700"
                 title="Export pet records as JSON"
               >

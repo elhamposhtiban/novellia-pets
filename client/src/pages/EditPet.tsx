@@ -141,7 +141,7 @@ function EditPet() {
     <div className="min-h-screen bg-gray-100 p-8">
       <div className="max-w-2xl mx-auto">
         <NavLink to={`/pets/${petId}`} variant="text" className="mb-6">
-          ← Back to Pet Details
+          Back to Pet Details
         </NavLink>
 
         <div className="bg-white rounded-lg shadow-lg p-6">
