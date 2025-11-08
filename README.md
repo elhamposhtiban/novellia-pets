@@ -2,7 +2,7 @@
 
 A full-stack web application for managing medical records for pets. Built with React, Node.js, and PostgreSQL.
 
-## 📋 Table of Contents
+## Table of Contents
 
 - [Overview](#overview)
 - [Features](#features)
@@ -15,6 +15,9 @@ A full-stack web application for managing medical records for pets. Built with R
 - [API Endpoints](#api-endpoints)
 - [Database Schema](#database-schema)
 - [Development](#development)
+- [UI/UX Features](#uiux-features)
+- [Notes](#notes)
+- [Security](#security)
 
 ## Overview
 
@@ -59,7 +62,7 @@ Novellia Pets is a medical records management system that allows pet owners to:
 - **Zod** - Input validation
 - **CORS** - Cross-origin resource sharing
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 novellia-pets/
@@ -305,7 +308,7 @@ if (!result.success) {
 
 - `GET /api/dashboard/stats` - Get dashboard statistics
 
-## 🗄 Database Schema
+## Database Schema
 
 ### `pets` Table
 
@@ -342,7 +345,7 @@ CREATE TABLE medical_records (
 - One pet can have many medical records
 - `ON DELETE CASCADE`: Deleting a pet automatically deletes its records
 
-## 💻 Development
+## Development
 
 ### Running in Development Mode
 
@@ -380,7 +383,7 @@ npm run build
 - Database queries use parameterized statements
 - Validation happens at controller level
 
-## 🎨 UI/UX Features
+## UI/UX Features
 
 - **Debounced Search**: Reduces API calls while typing
 - **Loading States**: Shows spinners during data fetching
@@ -389,7 +392,7 @@ npm run build
 - **Modal Dialogs**: For forms and confirmations
 - **Responsive Design**: Works on desktop and mobile
 
-## 📝 Notes
+## Notes
 
 - Frontend runs on port 3001 to avoid conflicts
 - Backend runs on port 5000
@@ -397,13 +400,9 @@ npm run build
 - All API endpoints are prefixed with `/api`
 - CORS is configured to allow requests from frontend origin
 
-## 🔒 Security
+## Security
 
 - SQL injection prevention via parameterized queries
 - Input validation on both client and server
 - CORS configured for specific origin
 - Environment variables for sensitive data
-
-## 📄 License
-
-ISC

@@ -42,20 +42,77 @@ function Dashboard() {
             <h2 className="text-gray-600 text-sm font-medium">Total Records</h2>
             <p className="text-3xl font-bold mt-2">{data?.totalRecords || 0}</p>
           </div>
-        </div>
 
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-xl font-semibold mb-4">Pets by Type</h2>
-          <div className="space-y-2">
-            {data?.petsByType &&
-              Object.entries(data.petsByType).map(([type, count]) => (
-                <div key={type} className="flex justify-between">
-                  <span className="capitalize">{type}</span>
-                  <span className="font-semibold">{count}</span>
-                </div>
-              ))}
+          <div className="bg-white p-6 rounded-lg shadow">
+            <h2 className="text-gray-600 text-sm font-medium">Vaccines</h2>
+            <p className="text-3xl font-bold mt-2">
+              {data?.recordsByType?.vaccine || 0}
+            </p>
+          </div>
+
+          <div className="bg-white p-6 rounded-lg shadow">
+            <h2 className="text-gray-600 text-sm font-medium">Allergies</h2>
+            <p className="text-3xl font-bold mt-2">
+              {data?.recordsByType?.allergy || 0}
+            </p>
           </div>
         </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <div className="bg-white p-6 rounded-lg shadow">
+            <h2 className="text-xl font-semibold mb-4">Pets by Type</h2>
+            <div className="space-y-2">
+              {data?.petsByType &&
+                Object.entries(data.petsByType).map(([type, count]) => (
+                  <div key={type} className="flex justify-between">
+                    <span className="capitalize">{type}</span>
+                    <span className="font-semibold">{count}</span>
+                  </div>
+                ))}
+            </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-lg shadow">
+            <h2 className="text-xl font-semibold mb-4">Records by Type</h2>
+            <div className="space-y-2">
+              {data?.recordsByType &&
+                Object.entries(data.recordsByType).map(([type, count]) => (
+                  <div key={type} className="flex justify-between">
+                    <span className="capitalize">{type}</span>
+                    <span className="font-semibold">{count}</span>
+                  </div>
+                ))}
+            </div>
+          </div>
+        </div>
+
+        {data?.upcomingVaccines && data.upcomingVaccines.length > 0 && (
+          <div className="bg-white p-6 rounded-lg shadow mb-8">
+            <h2 className="text-xl font-semibold mb-4">Upcoming Vaccines</h2>
+            <div className="space-y-3">
+              {data.upcomingVaccines.map((vaccine) => (
+                <div
+                  key={vaccine.id}
+                  className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50"
+                >
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="font-semibold">{vaccine.name}</p>
+                      <p className="text-sm text-gray-600">
+                        Pet: {vaccine.pet_name} ({vaccine.animal_type})
+                      </p>
+                      {vaccine.date && (
+                        <p className="text-sm text-gray-500 mt-1">
+                          Date: {new Date(vaccine.date).toLocaleDateString()}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
