@@ -1,9 +1,6 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { petService } from "../services/petService";
-import { recordService } from "../services/recordService";
-import { Pet, MedicalRecord } from "../types";
+import { MedicalRecord } from "../types";
 import Loading from "../components/Loading";
 import Error from "../components/Error";
 import PetDetailHeader from "../components/PetDetailHeader";
@@ -11,12 +8,14 @@ import MedicalRecordCard from "../components/MedicalRecordCard";
 import PetInfoCard from "../components/PetInfoCard";
 import RecordFormModal from "../components/RecordFormModal";
 import ConfirmModal from "../components/ConfirmModal";
+import { usePet } from "../hooks/usePet";
+import { useRecords } from "../hooks/useRecords";
+import { useDeletePet } from "../hooks/usePetMutations";
+import { useDeleteRecord } from "../hooks/useRecordMutations";
 
 function PetDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  //conver string id into number
   const petId = id ? parseInt(id, 10) : 0;
   const [isRecordModalOpen, setIsRecordModalOpen] = useState<boolean>(false);
   const [editingRecordId, setEditingRecordId] = useState<number | null>(null);
@@ -32,51 +31,19 @@ function PetDetail() {
     data: pet,
     isLoading: petLoading,
     error: petError,
-  } = useQuery<Pet>({
-    queryKey: ["pet", petId],
-    queryFn: async () => {
-      const response = await petService.getById(petId);
-      return response.data;
-    },
-    enabled: !!petId,
-    refetchOnMount: true,
-    refetchOnWindowFocus: false,
-  });
+  } = usePet(petId, { refetchOnMount: true });
 
   const {
     data: records,
     isLoading: recordsLoading,
     error: recordsError,
-  } = useQuery<MedicalRecord[]>({
-    queryKey: ["records", petId],
-    queryFn: async () => {
-      const response = await recordService.getByPetId(petId);
-      return response.data;
-    },
-    enabled: !!petId,
-  });
+  } = useRecords(petId);
 
   const vaccines = records?.filter((r) => r.record_type === "vaccine") || [];
   const allergies = records?.filter((r) => r.record_type === "allergy") || [];
 
-  const deleteMutation = useMutation({
-    mutationFn: () => petService.delete(petId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["pets"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
-      queryClient.invalidateQueries({ queryKey: ["records", petId] });
-      navigate("/pets");
-    },
-    onError: (error: any) => {
-      const errorMessage =
-        error.response?.data?.error ||
-        error.message ||
-        "Failed to delete pet. Please try again.";
-      setDeleteError(errorMessage);
-      // Auto-hide error after 5 seconds
-      setTimeout(() => setDeleteError(null), 5000);
-    },
-  });
+  const deleteMutation = useDeletePet();
+  const deleteRecordMutation = useDeleteRecord(petId);
 
   const handleDelete = () => {
     if (!pet) return;
@@ -84,16 +51,20 @@ function PetDetail() {
   };
 
   const handleConfirmDelete = () => {
-    deleteMutation.mutate();
+    deleteMutation.mutate(petId, {
+      onSuccess: () => {
+        navigate("/pets");
+      },
+      onError: (error: any) => {
+        const errorMessage =
+          error.response?.data?.error ||
+          error.message ||
+          "Failed to delete pet. Please try again.";
+        setDeleteError(errorMessage);
+        setTimeout(() => setDeleteError(null), 5000);
+      },
+    });
   };
-
-  const deleteRecordMutation = useMutation({
-    mutationFn: (recordId: number) => recordService.delete(recordId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["records", petId] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
-    },
-  });
 
   const handleDeleteRecord = (recordId: number, recordName: string) => {
     setShowDeleteRecordConfirm({ isOpen: true, recordId, recordName });

@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { query } from '../db/database';
+import { recordQueries } from '../db/queries/recordQueries';
+import { petQueries } from '../db/queries/petQueries';
 
 const createRecordSchema = z.object({
   record_type: z.enum(['vaccine', 'allergy'], {
@@ -43,20 +44,17 @@ export const getRecordsByPetId = async (
 ): Promise<void> => {
   try {
     const { petId } = req.params;
+    const id = parseInt(petId, 10);
 
     // Check if pet exists
-    const petCheck = await query('SELECT * FROM pets WHERE id = $1', [petId]);
-    if (petCheck.rows.length === 0) {
+    const pet = await petQueries.getById(id);
+    if (!pet) {
       res.status(404).json({ error: 'Pet not found' });
       return;
     }
 
-    const result = await query(
-      'SELECT * FROM medical_records WHERE pet_id = $1 ORDER BY date DESC, created_at DESC',
-      [petId]
-    );
-
-    res.json(result.rows);
+    const records = await recordQueries.getByPetId(id);
+    res.json(records);
   } catch (err) {
     next(err);
   }
@@ -69,15 +67,16 @@ export const getRecordById = async (
 ): Promise<void> => {
   try {
     const { id } = req.params;
+    const recordId = parseInt(id, 10);
 
-    const result = await query('SELECT * FROM medical_records WHERE id = $1', [id]);
+    const record = await recordQueries.getById(recordId);
     
-    if (result.rows.length === 0) {
+    if (!record) {
       res.status(404).json({ error: 'Medical record not found' });
       return;
     }
 
-    res.json(result.rows[0]);
+    res.json(record);
   } catch (err) {
     next(err);
   }
@@ -103,20 +102,23 @@ export const createRecord = async (
     }
 
     // Check if pet exists
-    const petCheck = await query('SELECT * FROM pets WHERE id = $1', [petId]);
-    if (petCheck.rows.length === 0) {
+    const id = parseInt(petId, 10);
+    const pet = await petQueries.getById(id);
+    if (!pet) {
       res.status(404).json({ error: 'Pet not found' });
       return;
     }
 
-    const result = await query(
-      `INSERT INTO medical_records (pet_id, record_type, name, date, reactions, severity) 
-       VALUES ($1, $2, $3, $4, $5, $6) 
-       RETURNING *`,
-      [petId, record_type, name, date || null, reactions || null, severity || null]
-    );
+    const record = await recordQueries.create({
+      pet_id: id,
+      record_type,
+      name,
+      date: date || null,
+      reactions: reactions || null,
+      severity: severity || null,
+    });
 
-    res.status(201).json(result.rows[0]);
+    res.status(201).json(record);
   } catch (err) {
     next(err);
   }
@@ -129,11 +131,12 @@ export const updateRecord = async (
 ): Promise<void> => {
   try {
     const { id } = req.params;
+    const recordId = parseInt(id, 10);
     const { record_type, name, date, reactions, severity } = req.body;
 
     // Check if record exists
-    const checkResult = await query('SELECT * FROM medical_records WHERE id = $1', [id]);
-    if (checkResult.rows.length === 0) {
+    const existingRecord = await recordQueries.getById(recordId);
+    if (!existingRecord) {
       res.status(404).json({ error: 'Medical record not found' });
       return;
     }
@@ -148,7 +151,6 @@ export const updateRecord = async (
       return;
     }
 
-    const existingRecord = checkResult.rows[0];
     // Always use provided values, fallback to existing only if not provided
     const finalRecordType = record_type !== undefined ? record_type : existingRecord.record_type;
     const finalName = name !== undefined ? name : existingRecord.name;
@@ -157,15 +159,15 @@ export const updateRecord = async (
     const finalReactions = reactions !== undefined ? reactions : existingRecord.reactions;
     const finalSeverity = severity !== undefined ? severity : existingRecord.severity;
 
-    const result = await query(
-      `UPDATE medical_records 
-       SET record_type = $1, name = $2, date = $3, reactions = $4, severity = $5, updated_at = CURRENT_TIMESTAMP
-       WHERE id = $6
-       RETURNING *`,
-      [finalRecordType, finalName, finalDate, finalReactions, finalSeverity, id]
-    );
+    const record = await recordQueries.update(recordId, {
+      record_type: finalRecordType,
+      name: finalName,
+      date: finalDate,
+      reactions: finalReactions,
+      severity: finalSeverity,
+    });
 
-    res.status(200).json(result.rows[0]);
+    res.status(200).json(record);
   } catch (err) {
     next(err);
   }
@@ -178,15 +180,16 @@ export const deleteRecord = async (
 ): Promise<void> => {
   try {
     const { id } = req.params;
+    const recordId = parseInt(id, 10);
 
     // Check if record exists
-    const checkResult = await query('SELECT * FROM medical_records WHERE id = $1', [id]);
-    if (checkResult.rows.length === 0) {
+    const record = await recordQueries.getById(recordId);
+    if (!record) {
       res.status(404).json({ error: 'Medical record not found' });
       return;
     }
 
-    await query('DELETE FROM medical_records WHERE id = $1', [id]);
+    await recordQueries.delete(recordId);
 
     res.status(200).json({ message: 'Medical record deleted successfully' });
   } catch (err) {

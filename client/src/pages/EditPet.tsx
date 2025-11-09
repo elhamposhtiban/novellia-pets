@@ -1,9 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
-import { petService } from "../services/petService";
-import { Pet, UpdatePetData } from "../types";
+import { UpdatePetData } from "../types";
 import Loading from "../components/Loading";
 import Error from "../components/Error";
 import NavLink from "../components/NavLink";
@@ -14,6 +12,8 @@ import {
   extractValidationErrors,
   getErrorMessage,
 } from "../utils/validation";
+import { usePet } from "../hooks/usePet";
+import { useUpdatePet } from "../hooks/usePetMutations";
 
 const createPetSchema = z.object({
   name: z.string().min(1, "Name is required").max(255, "Name is too long"),
@@ -35,7 +35,6 @@ type CreatePetFormData = z.infer<typeof createPetSchema>;
 function EditPet() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const petId = id ? parseInt(id, 10) : 0;
 
   const [formData, setFormData] = useState<CreatePetFormData>({
@@ -48,39 +47,9 @@ function EditPet() {
     Partial<Record<keyof CreatePetFormData, string>>
   >({});
 
-  const {
-    data: pet,
-    isLoading,
-    error,
-  } = useQuery<Pet>({
-    queryKey: ["pet", petId],
-    queryFn: async () => {
-      const response = await petService.getById(petId);
-      return response.data;
-    },
-    enabled: !!petId,
-  });
+  const { data: pet, isLoading, error } = usePet(petId);
 
-  const mutation = useMutation({
-    mutationFn: (data: UpdatePetData) => petService.update(petId, data),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["pet", petId] });
-      await queryClient.invalidateQueries({ queryKey: ["pets"] });
-      await queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
-      await queryClient.refetchQueries({ queryKey: ["pet", petId] });
-      navigate(`/pets/${petId}`);
-    },
-    onError: (error: any) => {
-      const validationErrors = extractValidationErrors(error);
-      if (Object.keys(validationErrors).length > 0) {
-        setErrors(validationErrors);
-      } else {
-        setErrors({
-          name: getErrorMessage(error, "Failed to update pet"),
-        });
-      }
-    },
-  });
+  const mutation = useUpdatePet(petId);
 
   useEffect(() => {
     if (pet) {
@@ -115,7 +84,21 @@ function EditPet() {
       e.preventDefault();
     }
     if (validateForm()) {
-      mutation.mutate(formData);
+      mutation.mutate(formData, {
+        onSuccess: () => {
+          navigate(`/pets/${petId}`);
+        },
+        onError: (error: any) => {
+          const validationErrors = extractValidationErrors(error);
+          if (Object.keys(validationErrors).length > 0) {
+            setErrors(validationErrors);
+          } else {
+            setErrors({
+              name: getErrorMessage(error, "Failed to update pet"),
+            });
+          }
+        },
+      });
     }
   };
 

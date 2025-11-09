@@ -1,18 +1,10 @@
-import { useQuery } from "@tanstack/react-query";
-import api from "../services/api";
-import { DashboardStats } from "../types";
 import Loading from "../components/Loading";
 import Error from "../components/Error";
 import NavLink from "../components/NavLink";
+import { useDashboardStats } from "../hooks/useDashboardStats";
 
 function Dashboard() {
-  const { data, isLoading, error } = useQuery<DashboardStats>({
-    queryKey: ["dashboard-stats"],
-    queryFn: async () => {
-      const response = await api.get<DashboardStats>("/dashboard/stats");
-      return response.data;
-    },
-  });
+  const { data, isLoading, error } = useDashboardStats();
 
   if (isLoading) {
     return <Loading message="Loading dashboard..." />;

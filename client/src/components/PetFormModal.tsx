@@ -1,7 +1,5 @@
 import { useState, FormEvent } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
-import { petService } from "../services/petService";
 import Modal from "./Modal";
 import FormField from "./FormField";
 import FormButtons from "./FormButtons";
@@ -10,6 +8,7 @@ import {
   extractValidationErrors,
   getErrorMessage,
 } from "../utils/validation";
+import { useCreatePet } from "../hooks/usePetMutations";
 
 const createPetSchema = z.object({
   name: z.string().min(1, "Name is required").max(255, "Name is too long"),
@@ -34,7 +33,6 @@ interface PetFormModalProps {
 }
 
 function PetFormModal({ isOpen, onClose }: PetFormModalProps) {
-  const queryClient = useQueryClient();
   const [formData, setFormData] = useState<CreatePetFormData>({
     name: "",
     animal_type: "",
@@ -45,24 +43,7 @@ function PetFormModal({ isOpen, onClose }: PetFormModalProps) {
     Partial<Record<keyof CreatePetFormData, string>>
   >({});
 
-  const mutation = useMutation({
-    mutationFn: petService.create,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["pets"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
-      handleClose();
-    },
-    onError: (error: any) => {
-      const validationErrors = extractValidationErrors(error);
-      if (Object.keys(validationErrors).length > 0) {
-        setErrors(validationErrors);
-      } else {
-        setErrors({
-          name: getErrorMessage(error, "Failed to create pet"),
-        });
-      }
-    },
-  });
+  const mutation = useCreatePet();
 
   const handleClose = () => {
     setFormData({
@@ -97,7 +78,21 @@ function PetFormModal({ isOpen, onClose }: PetFormModalProps) {
       e.preventDefault();
     }
     if (validateForm()) {
-      mutation.mutate(formData);
+      mutation.mutate(formData, {
+        onSuccess: () => {
+          handleClose();
+        },
+        onError: (error: any) => {
+          const validationErrors = extractValidationErrors(error);
+          if (Object.keys(validationErrors).length > 0) {
+            setErrors(validationErrors);
+          } else {
+            setErrors({
+              name: getErrorMessage(error, "Failed to create pet"),
+            });
+          }
+        },
+      });
     }
   };
 

@@ -1,13 +1,11 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { petService } from "../services/petService";
-import { Pet } from "../types";
 import PetCard from "../components/PetCard";
 import Loading from "../components/Loading";
 import Error from "../components/Error";
 import PetFormModal from "../components/PetFormModal";
 import NavLink from "../components/NavLink";
 import useDebounce from "../hooks/useDebounce";
+import { usePets } from "../hooks/usePets";
 
 function PetList() {
   const [search, setSearch] = useState<string>("");
@@ -21,16 +19,7 @@ function PetList() {
     data: pets,
     isLoading,
     error,
-  } = useQuery<Pet[]>({
-    queryKey: ["pets", debouncedSearch, animalType],
-    queryFn: async () => {
-      const response = await petService.getAll(
-        debouncedSearch || undefined,
-        animalType || undefined
-      );
-      return response.data;
-    },
-  });
+  } = usePets(debouncedSearch || undefined, animalType || undefined);
 
   if (isLoading) {
     return <Loading message="Loading pets..." />;

@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { query } from '../db/database';
+import { petQueries } from '../db/queries/petQueries';
 
 const createPetSchema = z.object({
   name: z.string().min(1, 'Name is required').max(255, 'Name is too long'),
@@ -24,27 +24,12 @@ export const getAllPets = async (
 ): Promise<void> => {
   try {
     const { search, animal_type } = req.query;
-    const conditions: string[] = [];
-    const params: any[] = [];
-
-    if (search) {
-      conditions.push(`name ILIKE $${params.length + 1}`);
-      params.push(`%${search}%`);
-    }
-
-    if (animal_type) {
-      conditions.push(`animal_type = $${params.length + 1}`);
-      params.push(animal_type);
-    }
-
-    let sql = 'SELECT * FROM pets';
-    if (conditions.length > 0) {
-      sql += ` WHERE ${conditions.join(' AND ')}`;
-    }
-    sql += ' ORDER BY created_at DESC';
-
-    const result = await query(sql, params);
-    res.json(result.rows);
+    const filters = {
+      search: search as string | undefined,
+      animal_type: animal_type as string | undefined,
+    };
+    const pets = await petQueries.getAll(filters);
+    res.json(pets);
   } catch (err) {
     next(err);
   }
@@ -57,15 +42,16 @@ export const getPetById = async (
 ): Promise<void> => {
   try {
     const { id } = req.params;
+    const petId = parseInt(id, 10);
 
-    const petResult = await query('SELECT * FROM pets WHERE id = $1', [id]);
+    const pet = await petQueries.getById(petId);
     
-    if (petResult.rows.length === 0) {
+    if (!pet) {
       res.status(404).json({ error: 'Pet not found' });
       return;
     }
 
-    res.json(petResult.rows[0]);
+    res.json(pet);
   } catch (err) {
     next(err);
   }
@@ -91,24 +77,21 @@ export const createPet = async (
     }
 
     // Check if pet already exists 
-    const existingPet = await query(
-      'SELECT * FROM pets WHERE name = $1 AND owner_name = $2',
-      [name, owner_name]
-    );
+    const exists = await petQueries.exists(name, owner_name);
 
-    if (existingPet.rows.length > 0) {
+    if (exists) {
       res.status(400).json({ error: 'Pet already exists' });
       return;
     }
 
-    const result = await query(
-      `INSERT INTO pets (name, animal_type, owner_name, date_of_birth) 
-       VALUES ($1, $2, $3, $4) 
-       RETURNING *`,
-      [name, animal_type, owner_name, date_of_birth]
-    );
+    const pet = await petQueries.create({
+      name,
+      animal_type,
+      owner_name,
+      date_of_birth,
+    });
 
-    res.status(201).json(result.rows[0]);
+    res.status(201).json(pet);
   } catch (err) {
     next(err);
   }
@@ -122,11 +105,12 @@ export const updatePet = async (
 ): Promise<void> => {
   try {
     const { id } = req.params;
+    const petId = parseInt(id, 10);
     const { name, animal_type, owner_name, date_of_birth } = req.body;
 
     // Check if pet exists
-    const checkResult = await query('SELECT * FROM pets WHERE id = $1', [id]);
-    if (checkResult.rows.length === 0) {
+    const existingPet = await petQueries.getById(petId);
+    if (!existingPet) {
       res.status(404).json({ error: 'Pet not found' });
       return;
     }
@@ -141,15 +125,14 @@ export const updatePet = async (
       return;
     }
 
-    const result = await query(
-      `UPDATE pets 
-       SET name = $1, animal_type = $2, owner_name = $3, date_of_birth = $4, updated_at = CURRENT_TIMESTAMP
-       WHERE id = ${id}
-       RETURNING *`,
-      [name, animal_type, owner_name, date_of_birth]
-    );
+    const pet = await petQueries.update(petId, {
+      name,
+      animal_type,
+      owner_name,
+      date_of_birth,
+    });
 
-    res.json(result.rows[0]);
+    res.json(pet);
   } catch (err) {
     next(err);
   }
@@ -163,15 +146,16 @@ export const deletePet = async (
 ): Promise<void> => {
   try {
     const { id } = req.params;
+    const petId = parseInt(id, 10);
 
     // Check if pet exists
-    const checkResult = await query('SELECT * FROM pets WHERE id = $1', [id]);
-    if (checkResult.rows.length === 0) {
+    const pet = await petQueries.getById(petId);
+    if (!pet) {
       res.status(404).json({ error: 'Pet not found' });
       return;
     }
 
-    await query('DELETE FROM pets WHERE id = $1', [id]);
+    await petQueries.delete(petId);
 
     res.status(200).json({ message: 'Pet deleted successfully' });
   } catch (err) {
